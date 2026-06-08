@@ -1,0 +1,188 @@
+import { NextRequest, NextResponse } from "next/server";
+import { isDemoMode, supabase } from "@/lib/supabaseClient";
+import { demoDbOperations } from "@/lib/demoData";
+import { createClient } from "@supabase/supabase-js";
+
+// GET: List all clients
+export async function GET(request: NextRequest) {
+  const sessionCookie = request.cookies.get("dashboard-session")?.value;
+  if (!sessionCookie) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  try {
+    const session = JSON.parse(decodeURIComponent(sessionCookie));
+    if (session.role !== "ADMIN") {
+      return NextResponse.json({ error: "Forbidden: Admins only" }, { status: 403 });
+    }
+  } catch (e) {
+    return NextResponse.json({ error: "Invalid session" }, { status: 401 });
+  }
+
+  try {
+    let list = [];
+    if (isDemoMode) {
+      const profiles = demoDbOperations.getProfiles().filter(p => p.role === "CLIENT");
+      const projects = demoDbOperations.getProjects();
+      list = profiles.map(profile => {
+        const project = projects.find(p => p.id === profile.project_id);
+        return {
+          id: profile.id,
+          full_name: profile.full_name,
+          email: profile.email,
+          project_id: profile.project_id,
+          project_name: project ? project.name : null,
+          updated_at: profile.updated_at
+        };
+      });
+    } else {
+      // Fetch profiles with a join to projects (if any)
+      const { data, error } = await supabase!
+        .from("profiles")
+        .select(`
+          id, 
+          full_name, 
+          email, 
+          project_id, 
+          updated_at,
+          projects:project_id ( name )
+        `)
+        .eq("role", "CLIENT")
+        .order("full_name", { ascending: true });
+
+      if (error) throw error;
+      
+      list = (data || []).map((item: any) => ({
+        id: item.id,
+        full_name: item.full_name,
+        email: item.email,
+        project_id: item.project_id,
+        project_name: item.projects ? item.projects.name : null,
+        updated_at: item.updated_at
+      }));
+    }
+    return NextResponse.json(list);
+  } catch (error: any) {
+    return NextResponse.json({ error: "Failed to list clients", details: error.message }, { status: 500 });
+  }
+}
+
+// POST: Create a new client account
+export async function POST(request: NextRequest) {
+  const sessionCookie = request.cookies.get("dashboard-session")?.value;
+  if (!sessionCookie) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  try {
+    const session = JSON.parse(decodeURIComponent(sessionCookie));
+    if (session.role !== "ADMIN") {
+      return NextResponse.json({ error: "Forbidden: Admins only" }, { status: 403 });
+    }
+  } catch (e) {
+    return NextResponse.json({ error: "Invalid session" }, { status: 401 });
+  }
+
+  try {
+    const body = await request.json();
+    const { email, password, full_name, project_id } = body;
+
+    if (!email || !password || !full_name) {
+      return NextResponse.json({ error: "Email, Password, and Full Name are required." }, { status: 400 });
+    }
+
+    let createdProfile: any = null;
+
+    if (isDemoMode) {
+      createdProfile = demoDbOperations.createClientProfile(email, full_name, project_id || null);
+    } else {
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+      const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
+      
+      // Create a dedicated server-side client to avoid session pollution
+      const supabaseServer = createClient(supabaseUrl, supabaseAnonKey, {
+        auth: {
+          persistSession: false,
+          autoRefreshToken: false,
+          detectSessionInUrl: false
+        }
+      });
+
+      // Sign up user in Auth
+      const { data: authData, error: authError } = await supabaseServer.auth.signUp({
+        email,
+        password,
+      });
+
+      if (authError || !authData.user) {
+        throw new Error(authError?.message || "Failed to create authentication user.");
+      }
+
+      // Upsert profile mapping with the newly created Auth user ID
+      const { data: profileData, error: profileError } = await supabase!
+        .from("profiles")
+        .upsert({
+          id: authData.user.id,
+          email,
+          full_name,
+          role: "CLIENT",
+          project_id: project_id || null,
+          updated_at: new Date().toISOString()
+        })
+        .select()
+        .single();
+
+      if (profileError) {
+        throw profileError;
+      }
+      createdProfile = profileData;
+    }
+
+    return NextResponse.json({ success: true, profile: createdProfile });
+  } catch (error: any) {
+    console.error("Create client profile failed:", error);
+    return NextResponse.json({ error: "Failed to onboard client", details: error.message }, { status: 500 });
+  }
+}
+
+// DELETE: Remove client access profile
+export async function DELETE(request: NextRequest) {
+  const sessionCookie = request.cookies.get("dashboard-session")?.value;
+  if (!sessionCookie) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  try {
+    const session = JSON.parse(decodeURIComponent(sessionCookie));
+    if (session.role !== "ADMIN") {
+      return NextResponse.json({ error: "Forbidden: Admins only" }, { status: 403 });
+    }
+  } catch (e) {
+    return NextResponse.json({ error: "Invalid session" }, { status: 401 });
+  }
+
+  try {
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get("id");
+
+    if (!id) {
+      return NextResponse.json({ error: "Missing id query parameter" }, { status: 400 });
+    }
+
+    if (isDemoMode) {
+      demoDbOperations.deleteProfile(id);
+    } else {
+      // Deleting user profile. Note: Admin API keys would be needed to delete from auth.users,
+      // but deleting the row from profiles prevents the portal view.
+      const { error } = await supabase!
+        .from("profiles")
+        .delete()
+        .eq("id", id);
+      if (error) throw error;
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (error: any) {
+    return NextResponse.json({ error: "Failed to delete client profile", details: error.message }, { status: 500 });
+  }
+}

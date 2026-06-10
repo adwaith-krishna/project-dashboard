@@ -26,6 +26,7 @@ export default function ServerStatsPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [dismissedOfflineOverlay, setDismissedOfflineOverlay] = useState(false);
   
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -65,6 +66,13 @@ export default function ServerStatsPage() {
 
   // Determine online/offline status based on last ping time (threshold 2 minutes - two ping times)
   const isOnline = latest ? (Date.now() - new Date(latest.created_at).getTime() < 2 * 60 * 1000) : false;
+
+  // Reset dismissed state if server goes back online
+  useEffect(() => {
+    if (isOnline) {
+      setDismissedOfflineOverlay(false);
+    }
+  }, [isOnline]);
 
   if (loading) {
     return (
@@ -134,7 +142,30 @@ export default function ServerStatsPage() {
       )}
 
       {latest ? (
-        <>
+        <div className="relative space-y-8">
+          {/* Overlay when offline and not dismissed */}
+          {!isOnline && !dismissedOfflineOverlay && (
+            <div className="absolute inset-0 z-40 flex flex-col items-center justify-center backdrop-blur-md bg-zinc-950/70 rounded-2xl border border-zinc-900/60 p-6 text-center animate-fade-in min-h-[500px]">
+              <div className="max-w-md space-y-5 p-8 bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl">
+                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-red-500/10 border border-red-500/20 text-red-400">
+                  <WifiOff className="h-7 w-7 animate-pulse" />
+                </div>
+                <div className="space-y-2">
+                  <h3 className="text-xl font-bold text-zinc-100">Server Connection Lost</h3>
+                  <p className="text-sm text-zinc-400 leading-relaxed">
+                    The Raspberry Pi server is currently offline or idle. No telemetry data has been received in the last 2 minutes.
+                  </p>
+                </div>
+                <button
+                  onClick={() => setDismissedOfflineOverlay(true)}
+                  className="w-full py-2.5 px-4 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 text-sm font-semibold rounded-xl cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98] shadow-lg"
+                >
+                  Dismiss & View Cached Data
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Metrics Dashboard Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             
@@ -292,7 +323,7 @@ export default function ServerStatsPage() {
               </div>
             </div>
           </div>
-        </>
+        </div>
       ) : (
         <div className="glass-panel border border-zinc-900 rounded-2xl p-10 text-center space-y-4">
           <Server className="h-12 w-12 text-zinc-750 mx-auto" />

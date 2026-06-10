@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { 
   UserPlus, Mail, Key, Layers, Trash2, Users, 
-  AlertCircle, CheckCircle2, Calendar, Shield, Pencil, Check, X
+  AlertCircle, CheckCircle2, Calendar, Shield, Pencil, Check, X, Clipboard, ClipboardCheck
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
@@ -31,10 +31,12 @@ export default function ClientAccountsPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
+  // Invitation Link state
+  const [invitedLink, setInvitedLink] = useState<string | null>(null);
+  const [copySuccess, setCopySuccess] = useState(false);
+
   // Form Fields
-  const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [assignedProjectId, setAssignedProjectId] = useState("");
 
   // Edit and Delete states
@@ -97,20 +99,27 @@ export default function ClientAccountsPage() {
     }
   };
 
+  const handleCopyLink = () => {
+    if (invitedLink) {
+      navigator.clipboard.writeText(invitedLink);
+      setCopySuccess(true);
+      setTimeout(() => setCopySuccess(false), 2000);
+    }
+  };
+
   const handleOnboardClient = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
     setError(null);
     setSuccess(null);
+    setInvitedLink(null);
 
     try {
       const res = await fetch("/api/admin/clients", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          full_name: fullName,
           email,
-          password,
           project_id: assignedProjectId || null,
         }),
       });
@@ -121,12 +130,11 @@ export default function ClientAccountsPage() {
         throw new Error(data.error || "Failed to onboard client");
       }
 
-      setSuccess(`Client account for "${fullName}" has been successfully created.`);
+      setSuccess(`Client invitation link generated successfully.`);
+      setInvitedLink(data.onboardingLink);
       
       // Reset form
-      setFullName("");
       setEmail("");
-      setPassword("");
       setAssignedProjectId("");
 
       // Refresh list
@@ -175,10 +183,44 @@ export default function ClientAccountsPage() {
         </div>
       )}
 
-      {error && (
+            {error && (
         <div className="rounded-xl bg-red-500/10 border border-red-500/20 p-4 text-sm text-red-400 flex items-center gap-3 animate-fade-in">
           <AlertCircle className="h-5 w-5 shrink-0 text-red-400" />
           <span>{error}</span>
+        </div>
+      )}
+
+      {/* Copy link drawer */}
+      {invitedLink && (
+        <div className="rounded-2xl bg-indigo-600/10 border border-indigo-500/20 p-6 space-y-4.5 animate-fade-in shadow-xl">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Shield className="h-5 w-5 text-indigo-400 animate-pulse" />
+              <h4 className="text-sm font-bold font-display text-indigo-200 uppercase tracking-wider">
+                Invitation Generated
+              </h4>
+            </div>
+            <button
+              onClick={handleCopyLink}
+              className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold transition-all cursor-pointer shadow-md"
+            >
+              {copySuccess ? (
+                <>
+                  <ClipboardCheck className="h-4 w-4" /> Copied!
+                </>
+              ) : (
+                <>
+                  <Clipboard className="h-4 w-4" /> Copy Invitation Link
+                </>
+              )}
+            </button>
+          </div>
+          <div className="bg-zinc-950/80 border border-zinc-900 rounded-xl p-4 font-mono text-xs text-indigo-200/90 break-all select-all leading-relaxed">
+            {invitedLink}
+          </div>
+          <p className="text-xs text-zinc-500">
+            Share this link with the invited client. They will be directed to set their password and complete their profile registration. This token will automatically expire in 24 hours.
+          </p>
         </div>
       )}
 
@@ -189,25 +231,13 @@ export default function ClientAccountsPage() {
           <div className="flex items-center gap-2 border-b border-zinc-900 pb-3">
             <UserPlus className="h-5 w-5 text-indigo-400" />
             <h3 className="text-sm font-bold font-display text-zinc-200 uppercase tracking-wider">
-              Onboard New Client
+              Invite Client
             </h3>
           </div>
 
           <form onSubmit={handleOnboardClient} className="space-y-5">
             <div>
-              <label className="block text-xs text-zinc-500 font-medium mb-1.5 uppercase">Full Name</label>
-              <input
-                type="text"
-                required
-                placeholder="e.g. John Doe"
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                className="w-full px-3.5 py-2.5 bg-zinc-950 border border-zinc-900 rounded-lg text-sm text-zinc-100 placeholder-zinc-700 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs text-zinc-500 font-medium mb-1.5 uppercase">Email Address</label>
+              <label className="block text-xs text-zinc-550 font-medium mb-1.5 uppercase">Client Email Address</label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-zinc-600">
                   <Mail className="h-4 w-4" />
@@ -218,23 +248,6 @@ export default function ClientAccountsPage() {
                   placeholder="e.g. client@company.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2.5 bg-zinc-950 border border-zinc-900 rounded-lg text-sm text-zinc-100 placeholder-zinc-700 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs text-zinc-500 font-medium mb-1.5 uppercase">Password</label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-zinc-600">
-                  <Key className="h-4 w-4" />
-                </div>
-                <input
-                  type="password"
-                  required
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
                   className="w-full pl-9 pr-3 py-2.5 bg-zinc-950 border border-zinc-900 rounded-lg text-sm text-zinc-100 placeholder-zinc-700 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                 />
               </div>
@@ -266,7 +279,7 @@ export default function ClientAccountsPage() {
               disabled={submitting}
               className="w-full py-3 px-4 mt-6 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-sm transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500/40 cursor-pointer disabled:opacity-50"
             >
-              {submitting ? "Onboarding..." : "Register Client Account"}
+              {submitting ? "Inviting..." : "Generate Client Invite"}
             </button>
           </form>
         </section>
@@ -290,7 +303,7 @@ export default function ClientAccountsPage() {
             <div className="flex flex-col items-center justify-center py-20 text-center text-zinc-500 text-sm gap-2">
               <Users className="h-10 w-10 text-zinc-700 mb-2" />
               <span>No client users registered.</span>
-              <span>Use the onboarding form to create client accounts.</span>
+              <span>Send an invitation to invite client accounts.</span>
             </div>
           ) : (
             <div className="space-y-3.5">
@@ -302,7 +315,7 @@ export default function ClientAccountsPage() {
                   <div className="space-y-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="font-bold text-zinc-100 font-display block text-sm truncate">
-                        {client.full_name}
+                        {client.full_name || "Pending Onboarding"}
                       </span>
                       <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-semibold bg-zinc-900 text-zinc-500 border border-zinc-900/80">
                         <Shield className="h-2.5 w-2.5 text-zinc-500" />

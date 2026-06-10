@@ -5,10 +5,12 @@ import { useRouter } from "next/navigation";
 import { Mail, Lock, Shield, ArrowRight, Activity } from "lucide-react";
 
 export default function LoginPage() {
+  const [mode, setMode] = useState<"login" | "forgot">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [forgotSuccess, setForgotSuccess] = useState<string | null>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -54,6 +56,35 @@ export default function LoginPage() {
     }
   };
 
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+    setForgotSuccess(null);
+
+    try {
+      const res = await fetch("/api/auth/forgot-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to request reset link");
+      }
+
+      setForgotSuccess(
+        data.message || "A password reset link has been successfully sent to your email address."
+      );
+    } catch (err: any) {
+      setError(err.message || "An unexpected error occurred");
+    } finally {
+      setLoading(false);
+    }
+  };
+
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center p-4 sm:p-6 lg:p-8">
@@ -72,71 +103,148 @@ export default function LoginPage() {
 
         {/* Login form card */}
         <div className="glass-panel rounded-2xl shadow-2xl overflow-hidden p-6 sm:p-8 border border-zinc-800">
-          <h2 className="text-xl font-semibold text-zinc-100 mb-6 font-display">
-            Sign In
-          </h2>
+          {mode === "login" ? (
+            <>
+              <h2 className="text-xl font-semibold text-zinc-100 mb-6 font-display">
+                Sign In
+              </h2>
 
-          <form id="login-form" onSubmit={handleLogin} className="space-y-5">
-            {error && (
-              <div className="rounded-lg bg-red-500/10 border border-red-500/20 p-3 text-sm text-red-400 animate-fade-in">
-                {error}
-              </div>
-            )}
+              <form id="login-form" onSubmit={handleLogin} className="space-y-5">
+                {error && (
+                  <div className="rounded-lg bg-red-500/10 border border-red-500/20 p-3 text-sm text-red-400 animate-fade-in">
+                    {error}
+                  </div>
+                )}
 
-            <div>
-              <label htmlFor="email" className="block text-xs font-medium text-zinc-400 uppercase tracking-wider mb-2">
-                Email Address
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-zinc-500">
-                  <Mail className="h-4.5 w-4.5" />
+                <div>
+                  <label htmlFor="email" className="block text-xs font-medium text-zinc-400 uppercase tracking-wider mb-2">
+                    Email Address
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-zinc-500">
+                      <Mail className="h-4.5 w-4.5" />
+                    </div>
+                    <input
+                      id="email"
+                      type="email"
+                      required
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="admin@dashboard.com"
+                      className="block w-full pl-10 pr-3 py-2.5 bg-zinc-900/50 border border-zinc-800 rounded-lg text-zinc-100 placeholder-zinc-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500 transition-all text-sm"
+                    />
+                  </div>
                 </div>
-                <input
-                  id="email"
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="admin@dashboard.com"
-                  className="block w-full pl-10 pr-3 py-2.5 bg-zinc-900/50 border border-zinc-800 rounded-lg text-zinc-100 placeholder-zinc-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500 transition-all text-sm"
-                />
-              </div>
-            </div>
 
-            <div>
-              <label htmlFor="password" className="block text-xs font-medium text-zinc-400 uppercase tracking-wider mb-2">
-                Password
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-zinc-500">
-                  <Lock className="h-4.5 w-4.5" />
+                <div>
+                  <div className="flex justify-between items-center mb-2">
+                    <label htmlFor="password" className="block text-xs font-medium text-zinc-400 uppercase tracking-wider">
+                      Password
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => { setMode("forgot"); setError(null); setForgotSuccess(null); }}
+                      className="text-xs font-semibold text-indigo-400 hover:text-indigo-300 transition-colors cursor-pointer bg-transparent border-none"
+                    >
+                      Forgot Password?
+                    </button>
+                  </div>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-zinc-500">
+                      <Lock className="h-4.5 w-4.5" />
+                    </div>
+                    <input
+                      id="password"
+                      type="password"
+                      required
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="••••••••"
+                      className="block w-full pl-10 pr-3 py-2.5 bg-zinc-900/50 border border-zinc-800 rounded-lg text-zinc-100 placeholder-zinc-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500 transition-all text-sm"
+                    />
+                  </div>
                 </div>
-                <input
-                  id="password"
-                  type="password"
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="block w-full pl-10 pr-3 py-2.5 bg-zinc-900/50 border border-zinc-800 rounded-lg text-zinc-100 placeholder-zinc-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500 transition-all text-sm"
-                />
-              </div>
-            </div>
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full flex justify-center items-center gap-2 py-3 px-4 rounded-lg bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white font-medium text-sm transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500/40 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-indigo-600/10"
-            >
-              {loading ? (
-                <div className="h-5 w-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              ) : (
-                <>
-                  Enter Dashboard <ArrowRight className="h-4 w-4" />
-                </>
-              )}
-            </button>
-          </form>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full flex justify-center items-center gap-2 py-3 px-4 rounded-lg bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white font-medium text-sm transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500/40 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-indigo-600/10"
+                >
+                  {loading ? (
+                    <div className="h-5 w-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <>
+                      Enter Dashboard <ArrowRight className="h-4 w-4" />
+                    </>
+                  )}
+                </button>
+              </form>
+            </>
+          ) : (
+            <>
+              <h2 className="text-xl font-semibold text-zinc-100 mb-6 font-display">
+                Reset Password
+              </h2>
+
+              <form id="forgot-form" onSubmit={handleForgotPassword} className="space-y-5">
+                {error && (
+                  <div className="rounded-lg bg-red-500/10 border border-red-500/20 p-3 text-sm text-red-400 animate-fade-in">
+                    {error}
+                  </div>
+                )}
+
+                {forgotSuccess && (
+                  <div className="rounded-lg bg-emerald-500/10 border border-emerald-500/20 p-3 text-sm text-emerald-400 animate-fade-in">
+                    {forgotSuccess}
+                  </div>
+                )}
+
+                <div>
+                  <label htmlFor="email-forgot" className="block text-xs font-medium text-zinc-400 uppercase tracking-wider mb-2">
+                    Email Address
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-zinc-500">
+                      <Mail className="h-4.5 w-4.5" />
+                    </div>
+                    <input
+                      id="email-forgot"
+                      type="email"
+                      required
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="admin@dashboard.com"
+                      className="block w-full pl-10 pr-3 py-2.5 bg-zinc-900/50 border border-zinc-800 rounded-lg text-zinc-100 placeholder-zinc-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500 transition-all text-sm"
+                    />
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full flex justify-center items-center gap-2 py-3 px-4 rounded-lg bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white font-medium text-sm transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500/40 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-indigo-600/10"
+                >
+                  {loading ? (
+                    <div className="h-5 w-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <>
+                      Send Reset Link <ArrowRight className="h-4 w-4" />
+                    </>
+                  )}
+                </button>
+
+                <div className="text-center mt-6">
+                  <button
+                    type="button"
+                    onClick={() => { setMode("login"); setError(null); setForgotSuccess(null); }}
+                    className="text-xs font-semibold text-zinc-400 hover:text-zinc-300 transition-colors cursor-pointer bg-transparent border-none"
+                  >
+                    ← Back to Sign In
+                  </button>
+                </div>
+              </form>
+            </>
+          )}
         </div>
       </div>
     </div>

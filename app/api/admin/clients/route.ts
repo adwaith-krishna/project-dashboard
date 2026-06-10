@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { isDemoMode, supabase } from "@/lib/supabaseClient";
 import { demoDbOperations } from "@/lib/demoData";
 import { createClient } from "@supabase/supabase-js";
+import { encrypt } from "@/lib/crypto";
 
 // GET: List all clients
 export async function GET(request: NextRequest) {
@@ -67,7 +68,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST: Create a new client account
+// POST: Generate invitation token for a new client
 export async function POST(request: NextRequest) {
   const sessionCookie = request.cookies.get("dashboard-session")?.value;
   if (!sessionCookie) {
@@ -85,63 +86,46 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { email, password, full_name, project_id } = body;
+    const { email, project_id } = body;
 
-    if (!email || !password || !full_name) {
-      return NextResponse.json({ error: "Email, Password, and Full Name are required." }, { status: 400 });
+    if (!email) {
+      return NextResponse.json({ error: "Email is required." }, { status: 400 });
     }
 
-    let createdProfile: any = null;
-
+    // Check if user already exists
+    let existingProfile = null;
     if (isDemoMode) {
-      createdProfile = demoDbOperations.createClientProfile(email, full_name, project_id || null);
+      existingProfile = demoDbOperations.getProfileByEmail(email);
     } else {
-      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-      const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
-      
-      // Create a dedicated server-side client to avoid session pollution
-      const supabaseServer = createClient(supabaseUrl, supabaseAnonKey, {
-        auth: {
-          persistSession: false,
-          autoRefreshToken: false,
-          detectSessionInUrl: false
-        }
-      });
-
-      // Sign up user in Auth
-      const { data: authData, error: authError } = await supabaseServer.auth.signUp({
-        email,
-        password,
-      });
-
-      if (authError || !authData.user) {
-        throw new Error(authError?.message || "Failed to create authentication user.");
-      }
-
-      // Upsert profile mapping with the newly created Auth user ID
-      const { data: profileData, error: profileError } = await supabase!
+      const { data } = await supabase!
         .from("profiles")
-        .upsert({
-          id: authData.user.id,
-          email,
-          full_name,
-          role: "CLIENT",
-          project_id: project_id || null,
-          updated_at: new Date().toISOString()
-        })
-        .select()
-        .single();
-
-      if (profileError) {
-        throw profileError;
-      }
-      createdProfile = profileData;
+        .select("id")
+        .eq("email", email)
+        .maybeSingle();
+      existingProfile = data;
     }
 
-    return NextResponse.json({ success: true, profile: createdProfile });
+    if (existingProfile) {
+      return NextResponse.json({ error: "A user profile with this email address already exists." }, { status: 400 });
+    }
+
+    // Generate token containing client registration metadata (valid for 24 hours)
+    const tokenPayload = {
+      email,
+      role: "CLIENT",
+      project_id: project_id || null,
+      server_stats_access: false,
+      exp: Date.now() + 24 * 60 * 60 * 1000
+    };
+
+    const token = encrypt(JSON.stringify(tokenPayload));
+    const origin = request.nextUrl.origin;
+    const onboardingLink = `${origin}/signup?token=${encodeURIComponent(token)}`;
+
+    return NextResponse.json({ success: true, onboardingLink });
   } catch (error: any) {
-    console.error("Create client profile failed:", error);
-    return NextResponse.json({ error: "Failed to onboard client", details: error.message }, { status: 500 });
+    console.error("Generate client invitation failed:", error);
+    return NextResponse.json({ error: "Failed to generate client invitation", details: error.message }, { status: 500 });
   }
 }
 

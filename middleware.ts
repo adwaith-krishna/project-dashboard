@@ -37,8 +37,8 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/portal/dashboard", request.url));
   }
 
-  // Handle Login page routing
-  if (path === "/login") {
+  // Handle Login, Signup and Reset Password page routing (public routes)
+  if (path === "/login" || path === "/signup" || path === "/reset-password") {
     if (session) {
       if (session.role === "ADMIN") {
         return NextResponse.redirect(new URL("/admin/dashboard", request.url));

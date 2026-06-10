@@ -59,7 +59,8 @@ export async function POST(request: NextRequest) {
       }
 
       // Upsert profile mapping with the newly created Auth user ID and correct role
-      const { data: profileData, error: profileError } = await supabase!
+      let profileData = null;
+      const { data: upsertData, error: profileError } = await supabase!
         .from("profiles")
         .upsert({
           id: authData.user.id,
@@ -71,11 +72,32 @@ export async function POST(request: NextRequest) {
           updated_at: new Date().toISOString()
         })
         .select()
-        .single();
+        .maybeSingle();
 
       if (profileError) {
-        throw profileError;
+        console.warn("Full profile upsert failed, attempting fallback without server_stats_access and email columns:", profileError.message);
+        
+        // Try fallback without email and server_stats_access in case user has not run sql migrations yet
+        const { data: retryData, error: retryError } = await supabase!
+          .from("profiles")
+          .upsert({
+            id: authData.user.id,
+            full_name,
+            role,
+            project_id: project_id || null,
+            updated_at: new Date().toISOString()
+          })
+          .select()
+          .single();
+
+        if (retryError) {
+          throw retryError;
+        }
+        profileData = retryData;
+      } else {
+        profileData = upsertData;
       }
+
       createdProfile = profileData;
     }
 

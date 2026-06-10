@@ -37,11 +37,14 @@ create table profiles (
   -- For CLIENT role, this explicitly binds them to exactly ONE project. 
   -- For ADMIN role, this remains NULL to grant global visibility.
   project_id uuid references projects(id) on delete set null,
+  server_stats_access boolean default false,
   updated_at timestamp with time zone
 );
 
 -- Migration query for existing databases:
 -- ALTER TABLE profiles ADD COLUMN email text;
+-- ALTER TABLE profiles ADD COLUMN server_stats_access boolean default false;
+-- UPDATE profiles SET server_stats_access = true WHERE role = 'ADMIN';
 
 -- 4. ANALYTICS EVENTS TABLE
 -- Houses high-performance raw logs streamed directly from client sites
@@ -59,3 +62,30 @@ create table analytics_events (
 -- PERFORMANCE OPTIMIZATION INDEX
 -- Speeds up date-range filtering and project-specific rendering inside analytics views
 create index idx_analytics_project_time on analytics_events(project_id, timestamp desc);
+
+-- 5. RASPBERRY PI SERVER STATISTICS TABLE
+-- Houses hardware telemetry logs reported from home servers
+create table raspberrypi_stats (
+  id uuid default uuid_generate_v4() primary key,
+  cpu_usage numeric not null,
+  memory_usage numeric not null,
+  disk_usage numeric not null,
+  temperature numeric not null,
+  uptime text not null,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+-- Index to fast filter logs by time (useful for charts)
+create index idx_pi_stats_time on raspberrypi_stats(created_at desc);
+
+-- Migration query for existing databases:
+-- create table raspberrypi_stats (
+--   id uuid default uuid_generate_v4() primary key,
+--   cpu_usage numeric not null,
+--   memory_usage numeric not null,
+--   disk_usage numeric not null,
+--   temperature numeric not null,
+--   uptime text not null,
+--   created_at timestamp with time zone default timezone('utc'::text, now()) not null
+-- );
+-- create index idx_pi_stats_time on raspberrypi_stats(created_at desc);

@@ -20,6 +20,7 @@ export interface Profile {
   full_name: string | null;
   role: "ADMIN" | "CLIENT";
   project_id: string | null;
+  server_stats_access?: boolean;
   updated_at: string | null;
   email: string;
 }
@@ -35,11 +36,22 @@ export interface AnalyticsEvent {
   timestamp: string;
 }
 
+export interface RaspberryPiStat {
+  id: string;
+  cpu_usage: number;
+  memory_usage: number;
+  disk_usage: number;
+  temperature: number;
+  uptime: string;
+  created_at: string;
+}
+
 // In-Memory Database Structure
 interface DemoDatabase {
   projects: Project[];
   profiles: Profile[];
   events: AnalyticsEvent[];
+  raspberrypiStats: RaspberryPiStat[];
 }
 
 const ACME_ID = "d48602b9-e137-4d6d-9653-568ea46a9a7d";
@@ -148,6 +160,7 @@ if (!globalForDemo.demoDb) {
       full_name: "Alex Admin",
       role: "ADMIN",
       project_id: null,
+      server_stats_access: true,
       updated_at: new Date().toISOString(),
     },
     {
@@ -168,10 +181,29 @@ if (!globalForDemo.demoDb) {
     },
   ];
 
+  function generateSeedPiStats(): RaspberryPiStat[] {
+    const stats: RaspberryPiStat[] = [];
+    const now = Date.now();
+    for (let i = 24; i >= 0; i--) {
+      const time = new Date(now - i * 60 * 60 * 1000);
+      stats.push({
+        id: `pi-${Math.random().toString(36).substr(2, 9)}`,
+        cpu_usage: parseFloat((10 + Math.random() * 25).toFixed(1)),
+        memory_usage: parseFloat((35 + Math.random() * 10).toFixed(1)),
+        disk_usage: 48.2,
+        temperature: parseFloat((42 + Math.random() * 15).toFixed(1)),
+        uptime: "3 days, 4 hours, 12 mins",
+        created_at: time.toISOString(),
+      });
+    }
+    return stats;
+  }
+
   globalForDemo.demoDb = {
     projects: seedProjects,
     profiles: seedProfiles,
     events: generateSeedEvents([ACME_ID, ZENITH_ID, STELLAR_ID]),
+    raspberrypiStats: generateSeedPiStats(),
   };
 }
 
@@ -232,13 +264,14 @@ export const demoDbOperations = {
     return newProfile;
   },
 
-  createAdminProfile: (email: string, fullName: string) => {
+  createAdminProfile: (email: string, fullName: string, serverStatsAccess: boolean = false) => {
     const newProfile: Profile = {
       id: `usr-${Math.random().toString(36).substr(2, 9)}`,
       email,
       full_name: fullName,
       role: "ADMIN",
       project_id: null,
+      server_stats_access: serverStatsAccess,
       updated_at: new Date().toISOString(),
     };
     demoDb.profiles.push(newProfile);
@@ -248,6 +281,17 @@ export const demoDbOperations = {
   deleteProfile: (id: string) => {
     demoDb.profiles = demoDb.profiles.filter((p) => p.id !== id);
     return true;
+  },
+
+  updateProfile: (id: string, updates: Partial<Profile>) => {
+    const idx = demoDb.profiles.findIndex((p) => p.id === id);
+    if (idx === -1) return null;
+    demoDb.profiles[idx] = {
+      ...demoDb.profiles[idx],
+      ...updates,
+      updated_at: new Date().toISOString(),
+    };
+    return demoDb.profiles[idx];
   },
 
   getAnalyticsEvents: (projectId: string) => demoDb.events.filter((e) => e.project_id === projectId),
@@ -313,5 +357,21 @@ export const demoDbOperations = {
         apiRequestsLimit: 1000000,
       }
     };
+  },
+
+  getRaspberryPiStats: () => demoDb.raspberrypiStats,
+
+  addRaspberryPiStat: (stat: Omit<RaspberryPiStat, "id" | "created_at">) => {
+    const newStat: RaspberryPiStat = {
+      ...stat,
+      id: `pi-${Math.random().toString(36).substr(2, 9)}`,
+      created_at: new Date().toISOString(),
+    };
+    demoDb.raspberrypiStats.push(newStat);
+    // Keep only last 100 entries to prevent memory bloat
+    if (demoDb.raspberrypiStats.length > 100) {
+      demoDb.raspberrypiStats.shift();
+    }
+    return newStat;
   }
 };

@@ -1,4 +1,5 @@
 import React from "react";
+import { cookies } from "next/headers";
 import { isDemoMode, supabase } from "@/lib/supabaseClient";
 import { demoDbOperations } from "@/lib/demoData";
 import AdminDashboardClient from "@/components/AdminDashboardClient";
@@ -55,8 +56,35 @@ export default async function AdminDashboardPage({
 }: {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
-  const params = await searchParams;
-  let projectId = params.project_id as string;
+  const resolvedParams = await searchParams;
+  const projectId = resolvedParams.project_id as string;
+  const cookieStore = await cookies();
+  const sessionCookie = cookieStore.get("dashboard-session")?.value;
+  let hasServerStatsAccess = true;
+
+  if (sessionCookie) {
+    try {
+      const session = JSON.parse(decodeURIComponent(sessionCookie));
+      if (isDemoMode) {
+        const profile = demoDbOperations.getProfileById(session.id);
+        hasServerStatsAccess = profile?.server_stats_access !== false;
+      } else {
+        const { data: profile, error } = await supabase!
+          .from("profiles")
+          .select("server_stats_access")
+          .eq("id", session.id)
+          .single();
+        if (error) {
+          console.warn("Failed to select server_stats_access, defaulting to true:", error.message);
+          hasServerStatsAccess = true;
+        } else if (profile) {
+          hasServerStatsAccess = !!profile.server_stats_access;
+        }
+      }
+    } catch (e) {
+      console.error("Failed to parse session cookie for admin dashboard:", e);
+    }
+  }
 
   if (!projectId) {
     const projects = await getAllProjects();
@@ -85,6 +113,7 @@ export default async function AdminDashboardPage({
   return (
     <AdminDashboardClient
       projectId={projectId}
+      hasServerStatsAccess={hasServerStatsAccess}
       initialProject={{
         id: project.id,
         name: project.name,

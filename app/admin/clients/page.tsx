@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { 
   UserPlus, Mail, Key, Layers, Trash2, Users, 
-  AlertCircle, CheckCircle2, Calendar, Shield
+  AlertCircle, CheckCircle2, Calendar, Shield, Pencil, Check, X
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
@@ -37,7 +37,9 @@ export default function ClientAccountsPage() {
   const [password, setPassword] = useState("");
   const [assignedProjectId, setAssignedProjectId] = useState("");
 
-  // Delete confirmation
+  // Edit and Delete states
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editProjectId, setEditProjectId] = useState<string>("");
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const fetchProjects = async () => {
@@ -70,6 +72,30 @@ export default function ClientAccountsPage() {
     fetchProjects();
     fetchClients();
   }, []);
+
+  const handleSavePermissions = async (clientId: string) => {
+    setError(null);
+    setSuccess(null);
+    try {
+      const res = await fetch("/api/admin/clients", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: clientId,
+          project_id: editProjectId || null,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to update permissions");
+
+      setSuccess("Client project assignment updated successfully.");
+      setEditingId(null);
+      fetchClients();
+    } catch (err: any) {
+      setError(err.message || "Failed to update permissions");
+    }
+  };
 
   const handleOnboardClient = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -293,17 +319,60 @@ export default function ClientAccountsPage() {
                   </div>
 
                   <div className="flex items-center gap-4 shrink-0 w-full sm:w-auto justify-between sm:justify-end border-t sm:border-0 border-zinc-900/60 pt-3 sm:pt-0">
-                    <div className="flex flex-col items-end">
-                      <span className="text-[10px] text-zinc-600 uppercase font-semibold tracking-wider mb-0.5">Assigned Project</span>
-                      {client.project_id ? (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold bg-indigo-600/10 text-indigo-400 border border-indigo-500/10">
-                          <Layers className="h-3.5 w-3.5 text-indigo-400" />
-                          {client.project_name || "Assigned Project"}
-                        </span>
+                    <div className="flex flex-col items-end min-w-[180px]">
+                      <span className="text-[10px] text-zinc-600 uppercase font-semibold tracking-wider mb-1">Assigned Project</span>
+                      {editingId === client.id ? (
+                        <div className="flex items-center gap-1.5 w-full">
+                          <select
+                            value={editProjectId}
+                            onChange={(e) => setEditProjectId(e.target.value)}
+                            className="flex-1 px-2 py-1 bg-zinc-950 border border-zinc-800 rounded text-xs text-zinc-100 focus:outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
+                          >
+                            <option value="">Restricted / Unassigned</option>
+                            {projects.map((project) => (
+                              <option key={project.id} value={project.id}>
+                                {project.name}
+                              </option>
+                            ))}
+                          </select>
+                          <button
+                            onClick={() => handleSavePermissions(client.id)}
+                            className="p-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded cursor-pointer transition-colors"
+                            title="Save changes"
+                          >
+                            <Check className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => setEditingId(null)}
+                            className="p-1 bg-zinc-900 hover:bg-zinc-800 text-zinc-400 rounded cursor-pointer transition-colors border border-zinc-800"
+                            title="Cancel"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        </div>
                       ) : (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold bg-zinc-900 text-zinc-600 border border-zinc-800">
-                          Restricted / Unassigned
-                        </span>
+                        <div className="flex items-center gap-2">
+                          {client.project_id ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold bg-indigo-600/10 text-indigo-400 border border-indigo-500/10">
+                              <Layers className="h-3.5 w-3.5 text-indigo-400" />
+                              {client.project_name || "Assigned Project"}
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold bg-zinc-900 text-zinc-600 border border-zinc-800">
+                              Restricted / Unassigned
+                            </span>
+                          )}
+                          <button
+                            onClick={() => {
+                              setEditingId(client.id);
+                              setEditProjectId(client.project_id || "");
+                            }}
+                            className="p-1.5 text-zinc-500 hover:text-indigo-400 hover:bg-indigo-500/10 rounded transition-all cursor-pointer border border-transparent hover:border-indigo-500/10"
+                            title="Edit project assignment"
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
                       )}
                     </div>
 

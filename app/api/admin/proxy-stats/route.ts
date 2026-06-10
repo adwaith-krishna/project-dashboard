@@ -17,13 +17,41 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  let session: any = null;
   try {
-    const session = JSON.parse(decodeURIComponent(sessionCookie));
+    session = JSON.parse(decodeURIComponent(sessionCookie));
     if (session.role !== "ADMIN") {
       return NextResponse.json({ error: "Forbidden: Admins only" }, { status: 403 });
     }
   } catch (e) {
     return NextResponse.json({ error: "Invalid session cookie" }, { status: 401 });
+  }
+
+  // Validate server_stats_access permission in database / demoDb
+  try {
+    let hasAccess = false;
+    if (isDemoMode) {
+      const profile = demoDbOperations.getProfileById(session.id);
+      hasAccess = profile?.server_stats_access !== false;
+    } else {
+      const { data: profile, error: profileErr } = await supabase!
+        .from("profiles")
+        .select("server_stats_access")
+        .eq("id", session.id)
+        .single();
+      if (profileErr) {
+        console.warn("Failed to select server_stats_access, defaulting to true:", profileErr.message);
+        hasAccess = true;
+      } else {
+        hasAccess = !!profile?.server_stats_access;
+      }
+    }
+
+    if (!hasAccess) {
+      return NextResponse.json({ error: "Forbidden: You do not have permission to view server statistics." }, { status: 403 });
+    }
+  } catch (err: any) {
+    return NextResponse.json({ error: "Failed to verify administrator permissions", details: err.message }, { status: 500 });
   }
 
   try {

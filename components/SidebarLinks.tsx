@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Activity, FolderPlus, LogOut, Shield, ShieldAlert, Users } from "lucide-react";
+import { Activity, FolderPlus, LogOut, Shield, ShieldAlert, Users, Server } from "lucide-react";
 
 export default function SidebarLinks() {
   const pathname = usePathname();
@@ -33,6 +33,12 @@ export default function SidebarLinks() {
       href: "/admin/dashboard",
       icon: Activity,
       description: "Quotas & live deployment logs",
+    },
+    {
+      name: "Server Stats",
+      href: "/admin/server-stats",
+      icon: Server,
+      description: "Raspberrypi server statistics",
     },
     {
       name: "Client Accounts",

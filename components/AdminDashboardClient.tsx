@@ -31,12 +31,14 @@ interface AnalyticsEvent {
 
 interface AdminDashboardClientProps {
   projectId: string;
+  hasServerStatsAccess: boolean;
   initialProject: Project;
   events: AnalyticsEvent[];
 }
 
 export default function AdminDashboardClient({ 
   projectId, 
+  hasServerStatsAccess,
   initialProject,
   events 
 }: AdminDashboardClientProps) {
@@ -44,7 +46,9 @@ export default function AdminDashboardClient({
   const [syncing, setSyncing] = useState(false);
   const [data, setData] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"quotas" | "analytics">("quotas");
+  const [activeTab, setActiveTab] = useState<"quotas" | "analytics">(
+    hasServerStatsAccess ? "quotas" : "analytics"
+  );
 
   const fetchStats = async (isManualSync = false) => {
     if (isManualSync) setSyncing(true);
@@ -67,8 +71,12 @@ export default function AdminDashboardClient({
   };
 
   useEffect(() => {
-    fetchStats();
-  }, [projectId]);
+    if (hasServerStatsAccess) {
+      fetchStats();
+    } else {
+      setLoading(false);
+    }
+  }, [projectId, hasServerStatsAccess]);
 
   // Render Skeleton Loaders
   if (loading) {
@@ -162,30 +170,32 @@ export default function AdminDashboardClient({
       </div>
 
       {/* Tab Selection Bar */}
-      <div className="flex border-b border-zinc-900 pb-px gap-6 mb-2">
-        <button
-          onClick={() => setActiveTab("quotas")}
-          className={`flex items-center gap-2 pb-3 text-sm font-semibold transition-all border-b-2 cursor-pointer ${
-            activeTab === "quotas"
-              ? "border-indigo-500 text-indigo-400"
-              : "border-transparent text-zinc-500 hover:text-zinc-350"
-          }`}
-        >
-          <Server className="h-4 w-4" />
-          Infrastructure Quotas
-        </button>
-        <button
-          onClick={() => setActiveTab("analytics")}
-          className={`flex items-center gap-2 pb-3 text-sm font-semibold transition-all border-b-2 cursor-pointer ${
-            activeTab === "analytics"
-              ? "border-indigo-500 text-indigo-400"
-              : "border-transparent text-zinc-500 hover:text-zinc-355"
-          }`}
-        >
-          <BarChart3 className="h-4 w-4" />
-          Client Traffic Report
-        </button>
-      </div>
+      {hasServerStatsAccess && (
+        <div className="flex border-b border-zinc-900 pb-px gap-6 mb-2">
+          <button
+            onClick={() => setActiveTab("quotas")}
+            className={`flex items-center gap-2 pb-3 text-sm font-semibold transition-all border-b-2 cursor-pointer ${
+              activeTab === "quotas"
+                ? "border-indigo-500 text-indigo-400"
+                : "border-transparent text-zinc-500 hover:text-zinc-350"
+            }`}
+          >
+            <Server className="h-4 w-4" />
+            Infrastructure Quotas
+          </button>
+          <button
+            onClick={() => setActiveTab("analytics")}
+            className={`flex items-center gap-2 pb-3 text-sm font-semibold transition-all border-b-2 cursor-pointer ${
+              activeTab === "analytics"
+                ? "border-indigo-500 text-indigo-400"
+                : "border-transparent text-zinc-500 hover:text-zinc-355"
+            }`}
+          >
+            <BarChart3 className="h-4 w-4" />
+            Client Traffic Report
+          </button>
+        </div>
+      )}
 
       {activeTab === "quotas" ? (
         <>

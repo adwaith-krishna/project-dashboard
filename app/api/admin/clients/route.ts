@@ -186,3 +186,47 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: "Failed to delete client profile", details: error.message }, { status: 500 });
   }
 }
+
+// PUT: Update client permissions / project assignment
+export async function PUT(request: NextRequest) {
+  const sessionCookie = request.cookies.get("dashboard-session")?.value;
+  if (!sessionCookie) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  try {
+    const session = JSON.parse(decodeURIComponent(sessionCookie));
+    if (session.role !== "ADMIN") {
+      return NextResponse.json({ error: "Forbidden: Admins only" }, { status: 403 });
+    }
+  } catch (e) {
+    return NextResponse.json({ error: "Invalid session" }, { status: 401 });
+  }
+
+  try {
+    const body = await request.json();
+    const { id, project_id } = body;
+
+    if (!id) {
+      return NextResponse.json({ error: "Client ID is required." }, { status: 400 });
+    }
+
+    if (isDemoMode) {
+      demoDbOperations.updateProfile(id, { project_id: project_id || null });
+    } else {
+      const { error } = await supabase!
+        .from("profiles")
+        .update({
+          project_id: project_id || null,
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", id)
+        .eq("role", "CLIENT");
+      if (error) throw error;
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (error: any) {
+    return NextResponse.json({ error: "Failed to update client permissions", details: error.message }, { status: 500 });
+  }
+}

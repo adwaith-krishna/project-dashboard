@@ -28,18 +28,32 @@ export async function GET(request: NextRequest) {
         full_name: profile.full_name,
         email: profile.email,
         role: profile.role,
+        server_stats_access: profile.server_stats_access !== false,
         updated_at: profile.updated_at
       }));
     } else {
       const { data, error } = await supabase!
         .from("profiles")
-        .select("id, full_name, email, role, updated_at")
+        .select("id, full_name, email, role, server_stats_access, updated_at")
         .eq("role", "ADMIN")
         .order("full_name", { ascending: true });
 
-      if (error) throw error;
-      
-      list = data || [];
+      if (error) {
+        console.warn("Failed to fetch server_stats_access column from profiles, falling back to legacy fields:", error.message);
+        const { data: fallbackData, error: fallbackError } = await supabase!
+          .from("profiles")
+          .select("id, full_name, email, role, updated_at")
+          .eq("role", "ADMIN")
+          .order("full_name", { ascending: true });
+        
+        if (fallbackError) throw fallbackError;
+        list = (fallbackData || []).map(p => ({
+          ...p,
+          server_stats_access: true
+        }));
+      } else {
+        list = data || [];
+      }
     }
     return NextResponse.json(list);
   } catch (error: any) {
@@ -65,7 +79,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { email } = body;
+    const { email, server_stats_access } = body;
 
     if (!email) {
       return NextResponse.json({ error: "Email is required." }, { status: 400 });
@@ -93,6 +107,7 @@ export async function POST(request: NextRequest) {
       email,
       role: "ADMIN",
       project_id: null,
+      server_stats_access: !!server_stats_access,
       exp: Date.now() + 24 * 60 * 60 * 1000
     };
 
@@ -150,5 +165,49 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ success: true });
   } catch (error: any) {
     return NextResponse.json({ error: "Failed to delete admin profile", details: error.message }, { status: 500 });
+  }
+}
+
+// PUT: Update admin permissions
+export async function PUT(request: NextRequest) {
+  const sessionCookie = request.cookies.get("dashboard-session")?.value;
+  if (!sessionCookie) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  try {
+    const session = JSON.parse(decodeURIComponent(sessionCookie));
+    if (session.role !== "ADMIN") {
+      return NextResponse.json({ error: "Forbidden: Admins only" }, { status: 403 });
+    }
+  } catch (e) {
+    return NextResponse.json({ error: "Invalid session" }, { status: 401 });
+  }
+
+  try {
+    const body = await request.json();
+    const { id, server_stats_access } = body;
+
+    if (!id) {
+      return NextResponse.json({ error: "Admin ID is required." }, { status: 400 });
+    }
+
+    if (isDemoMode) {
+      demoDbOperations.updateProfile(id, { server_stats_access: !!server_stats_access });
+    } else {
+      const { error } = await supabase!
+        .from("profiles")
+        .update({
+          server_stats_access: !!server_stats_access,
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", id)
+        .eq("role", "ADMIN");
+      if (error) throw error;
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (error: any) {
+    return NextResponse.json({ error: "Failed to update admin permissions", details: error.message }, { status: 500 });
   }
 }

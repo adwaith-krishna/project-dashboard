@@ -25,13 +25,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invitation link has expired." }, { status: 400 });
     }
 
-    const { email, role, project_id } = data;
+    const { email, role, project_id, server_stats_access } = data;
 
     let createdProfile: any = null;
 
     if (isDemoMode) {
       if (role === "ADMIN") {
-        createdProfile = demoDbOperations.createAdminProfile(email, full_name);
+        createdProfile = demoDbOperations.createAdminProfile(email, full_name, !!server_stats_access);
       } else {
         createdProfile = demoDbOperations.createClientProfile(email, full_name, project_id || null);
       }
@@ -67,6 +67,7 @@ export async function POST(request: NextRequest) {
           full_name,
           role,
           project_id: project_id || null,
+          server_stats_access: role === "ADMIN" ? !!server_stats_access : false,
           updated_at: new Date().toISOString()
         })
         .select()

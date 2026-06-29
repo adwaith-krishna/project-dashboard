@@ -40,7 +40,7 @@ export default function PortalSidebar({ fullName, email, projectName }: PortalSi
         </div>
         <div>
           <h2 className="text-sm font-bold font-display text-white tracking-wide uppercase">
-            Apex Portal
+            Zedbe Portal
           </h2>
           <div className="flex items-center gap-1 text-[10px] text-zinc-500 font-semibold uppercase mt-0.5 tracking-wider">
             <Shield className="h-3 w-3 text-emerald-400" />

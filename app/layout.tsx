@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Apex Analytics | Multi-Tenant Dashboard",
+  title: "Zedbe Projects | Multi-Tenant Dashboard",
   description: "A centralized platform for system health telemetry, traffic analysis, and deployment tracking across multiple serverless sites.",
 };
 

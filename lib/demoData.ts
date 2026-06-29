@@ -36,22 +36,11 @@ export interface AnalyticsEvent {
   timestamp: string;
 }
 
-export interface RaspberryPiStat {
-  id: string;
-  cpu_usage: number;
-  memory_usage: number;
-  disk_usage: number;
-  temperature: number;
-  uptime: string;
-  created_at: string;
-}
-
 // In-Memory Database Structure
 interface DemoDatabase {
   projects: Project[];
   profiles: Profile[];
   events: AnalyticsEvent[];
-  raspberrypiStats: RaspberryPiStat[];
 }
 
 const ACME_ID = "d48602b9-e137-4d6d-9653-568ea46a9a7d";
@@ -181,29 +170,10 @@ if (!globalForDemo.demoDb) {
     },
   ];
 
-  function generateSeedPiStats(): RaspberryPiStat[] {
-    const stats: RaspberryPiStat[] = [];
-    const now = Date.now();
-    for (let i = 24; i >= 0; i--) {
-      const time = new Date(now - i * 60 * 60 * 1000);
-      stats.push({
-        id: `pi-${Math.random().toString(36).substr(2, 9)}`,
-        cpu_usage: parseFloat((10 + Math.random() * 25).toFixed(1)),
-        memory_usage: parseFloat((35 + Math.random() * 10).toFixed(1)),
-        disk_usage: 48.2,
-        temperature: parseFloat((42 + Math.random() * 15).toFixed(1)),
-        uptime: "3 days, 4 hours, 12 mins",
-        created_at: time.toISOString(),
-      });
-    }
-    return stats;
-  }
-
   globalForDemo.demoDb = {
     projects: seedProjects,
     profiles: seedProfiles,
     events: generateSeedEvents([ACME_ID, ZENITH_ID, STELLAR_ID]),
-    raspberrypiStats: generateSeedPiStats(),
   };
 }
 
@@ -357,21 +327,5 @@ export const demoDbOperations = {
         apiRequestsLimit: 1000000,
       }
     };
-  },
-
-  getRaspberryPiStats: () => demoDb.raspberrypiStats,
-
-  addRaspberryPiStat: (stat: Omit<RaspberryPiStat, "id" | "created_at">) => {
-    const newStat: RaspberryPiStat = {
-      ...stat,
-      id: `pi-${Math.random().toString(36).substr(2, 9)}`,
-      created_at: new Date().toISOString(),
-    };
-    demoDb.raspberrypiStats.push(newStat);
-    // Keep only last 100 entries to prevent memory bloat
-    if (demoDb.raspberrypiStats.length > 100) {
-      demoDb.raspberrypiStats.shift();
-    }
-    return newStat;
   }
 };

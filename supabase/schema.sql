@@ -63,29 +63,4 @@ create table analytics_events (
 -- Speeds up date-range filtering and project-specific rendering inside analytics views
 create index idx_analytics_project_time on analytics_events(project_id, timestamp desc);
 
--- 5. RASPBERRY PI SERVER STATISTICS TABLE
--- Houses hardware telemetry logs reported from home servers
-create table raspberrypi_stats (
-  id uuid default uuid_generate_v4() primary key,
-  cpu_usage numeric not null,
-  memory_usage numeric not null,
-  disk_usage numeric not null,
-  temperature numeric not null,
-  uptime text not null,
-  created_at timestamp with time zone default timezone('utc'::text, now()) not null
-);
 
--- Index to fast filter logs by time (useful for charts)
-create index idx_pi_stats_time on raspberrypi_stats(created_at desc);
-
--- Migration query for existing databases:
--- create table raspberrypi_stats (
---   id uuid default uuid_generate_v4() primary key,
---   cpu_usage numeric not null,
---   memory_usage numeric not null,
---   disk_usage numeric not null,
---   temperature numeric not null,
---   uptime text not null,
---   created_at timestamp with time zone default timezone('utc'::text, now()) not null
--- );
--- create index idx_pi_stats_time on raspberrypi_stats(created_at desc);

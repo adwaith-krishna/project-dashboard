@@ -102,7 +102,7 @@ export default function SignupPage() {
             <Activity className="h-6 w-6 animate-pulse" />
           </div>
           <h1 className="text-3xl font-bold font-display tracking-tight text-white">
-            Apex Analytics
+            Zedbe Projects
           </h1>
           <p className="mt-2 text-sm text-zinc-400">
             Project Maintenance & Telemetry Control Panel

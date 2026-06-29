@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { email, server_stats_access } = body;
+    const { email } = body;
 
     if (!email) {
       return NextResponse.json({ error: "Email is required." }, { status: 400 });
@@ -107,7 +107,7 @@ export async function POST(request: NextRequest) {
       email,
       role: "ADMIN",
       project_id: null,
-      server_stats_access: !!server_stats_access,
+      server_stats_access: true,
       exp: Date.now() + 24 * 60 * 60 * 1000
     };
 
@@ -168,46 +168,4 @@ export async function DELETE(request: NextRequest) {
   }
 }
 
-// PUT: Update admin permissions
-export async function PUT(request: NextRequest) {
-  const sessionCookie = request.cookies.get("dashboard-session")?.value;
-  if (!sessionCookie) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
 
-  try {
-    const session = JSON.parse(decodeURIComponent(sessionCookie));
-    if (session.role !== "ADMIN") {
-      return NextResponse.json({ error: "Forbidden: Admins only" }, { status: 403 });
-    }
-  } catch (e) {
-    return NextResponse.json({ error: "Invalid session" }, { status: 401 });
-  }
-
-  try {
-    const body = await request.json();
-    const { id, server_stats_access } = body;
-
-    if (!id) {
-      return NextResponse.json({ error: "Admin ID is required." }, { status: 400 });
-    }
-
-    if (isDemoMode) {
-      demoDbOperations.updateProfile(id, { server_stats_access: !!server_stats_access });
-    } else {
-      const { error } = await supabase!
-        .from("profiles")
-        .update({
-          server_stats_access: !!server_stats_access,
-          updated_at: new Date().toISOString()
-        })
-        .eq("id", id)
-        .eq("role", "ADMIN");
-      if (error) throw error;
-    }
-
-    return NextResponse.json({ success: true });
-  } catch (error: any) {
-    return NextResponse.json({ error: "Failed to update admin permissions", details: error.message }, { status: 500 });
-  }
-}

@@ -30,11 +30,6 @@ export default function AdminAccountsPage() {
 
   // Form Fields
   const [email, setEmail] = useState("");
-  const [serverStatsAccess, setServerStatsAccess] = useState(false);
-
-  // Edit and Delete states
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editStatsAccess, setEditStatsAccess] = useState<boolean>(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -69,29 +64,6 @@ export default function AdminAccountsPage() {
     fetchAdmins();
   }, []);
 
-  const handleSavePermissions = async (adminId: string) => {
-    setError(null);
-    setSuccess(null);
-    try {
-      const res = await fetch("/api/admin/admins", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id: adminId,
-          server_stats_access: editStatsAccess,
-        }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to update permissions");
-
-      setSuccess("Administrator permissions updated successfully.");
-      setEditingId(null);
-      fetchAdmins();
-    } catch (err: any) {
-      setError(err.message || "Failed to update permissions");
-    }
-  };
 
   const handleInviteAdmin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -104,7 +76,7 @@ export default function AdminAccountsPage() {
       const res = await fetch("/api/admin/admins", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, server_stats_access: serverStatsAccess }),
+        body: JSON.stringify({ email, server_stats_access: true }),
       });
 
       const data = await res.json();
@@ -116,7 +88,6 @@ export default function AdminAccountsPage() {
       setSuccess(`Admin invitation generated successfully.`);
       setInvitedLink(data.onboardingLink);
       setEmail("");
-      setServerStatsAccess(false);
       fetchAdmins();
     } catch (err: any) {
       setError(err.message || "An unexpected error occurred during creation");
@@ -240,18 +211,7 @@ export default function AdminAccountsPage() {
               </div>
             </div>
 
-            <div className="flex items-center gap-3 bg-zinc-950/40 p-3 rounded-lg border border-zinc-900">
-              <input
-                id="serverStatsAccess"
-                type="checkbox"
-                checked={serverStatsAccess}
-                onChange={(e) => setServerStatsAccess(e.target.checked)}
-                className="h-4 w-4 rounded border-zinc-800 text-indigo-600 focus:ring-indigo-500/40 bg-zinc-955 cursor-pointer accent-indigo-600"
-              />
-              <label htmlFor="serverStatsAccess" className="text-xs text-zinc-200 font-semibold cursor-pointer select-none">
-                Server Stats Permission
-              </label>
-            </div>
+
 
             <button
               type="submit"
@@ -300,15 +260,7 @@ export default function AdminAccountsPage() {
                           <Shield className="h-2.5 w-2.5 text-indigo-400" />
                           System Admin
                         </span>
-                        {admin.server_stats_access !== false ? (
-                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-semibold bg-blue-500/10 text-blue-400 border border-blue-500/20" title="Has permission to view server statistics">
-                            Stats: Granted
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-semibold bg-zinc-800 text-zinc-500 border border-zinc-700/50" title="Restricted from viewing server statistics">
-                            Stats: Restricted
-                          </span>
-                        )}
+
                         {isSelf && (
                           <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
                             Logged In (You)
@@ -344,47 +296,8 @@ export default function AdminAccountsPage() {
                             Cancel
                           </button>
                         </div>
-                      ) : editingId === admin.id ? (
-                        <div className="flex items-center gap-2.5 animate-fade-in">
-                          <div className="flex items-center gap-1.5 bg-zinc-900 border border-zinc-800 px-2 py-1 rounded">
-                            <input
-                              id={`editStatsAccess-${admin.id}`}
-                              type="checkbox"
-                              checked={editStatsAccess}
-                              onChange={(e) => setEditStatsAccess(e.target.checked)}
-                              className="h-3.5 w-3.5 rounded border-zinc-700 text-indigo-600 focus:ring-indigo-500/40 bg-zinc-950 cursor-pointer accent-indigo-600"
-                            />
-                            <label htmlFor={`editStatsAccess-${admin.id}`} className="text-[10px] text-zinc-200 font-semibold cursor-pointer select-none">
-                              Server Stats
-                            </label>
-                          </div>
-                          <button
-                            onClick={() => handleSavePermissions(admin.id)}
-                            className="p-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded cursor-pointer transition-colors"
-                            title="Save changes"
-                          >
-                            <Check className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => setEditingId(null)}
-                            className="p-1 bg-zinc-900 hover:bg-zinc-800 text-zinc-450 rounded cursor-pointer transition-colors border border-zinc-800"
-                            title="Cancel"
-                          >
-                            <X className="h-4 w-4" />
-                          </button>
-                        </div>
                       ) : (
                         <div className="flex items-center gap-1.5">
-                          <button
-                            onClick={() => {
-                              setEditingId(admin.id);
-                              setEditStatsAccess(admin.server_stats_access !== false);
-                            }}
-                            className="p-2 text-zinc-500 hover:text-indigo-400 hover:bg-indigo-500/10 rounded-lg transition-all cursor-pointer border border-transparent hover:border-indigo-500/10"
-                            title="Edit permissions"
-                          >
-                            <Pencil className="h-4.5 w-4.5" />
-                          </button>
                           <button
                             onClick={() => setDeletingId(admin.id)}
                             className="p-2 text-zinc-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all cursor-pointer border border-transparent hover:border-red-500/10"

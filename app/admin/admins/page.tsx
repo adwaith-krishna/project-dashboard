@@ -278,8 +278,8 @@ export default function AdminAccountsPage() {
 
                     <div className="flex items-center gap-4 shrink-0 w-full sm:w-auto justify-end border-t sm:border-0 border-zinc-900/60 pt-3 sm:pt-0">
                       {isSelf ? (
-                        <span className="text-[10px] text-zinc-500 font-medium italic select-none">
-                          Protected Active User
+                        <span className="text-[10px] text-zinc-550 font-medium italic select-none">
+                          Active User
                         </span>
                       ) : deletingId === admin.id ? (
                         <div className="flex items-center gap-1 animate-fade-in">

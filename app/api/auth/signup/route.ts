@@ -75,25 +75,42 @@ export async function POST(request: NextRequest) {
         .maybeSingle();
 
       if (profileError) {
-        console.warn("Full profile upsert failed, attempting fallback without server_stats_access and email columns:", profileError.message);
+        console.warn("Full profile upsert failed, attempting fallback with email but without server_stats_access:", profileError.message);
         
-        // Try fallback without email and server_stats_access in case user has not run sql migrations yet
+        // Try fallback with email, but without server_stats_access
         const { data: retryData, error: retryError } = await supabase!
           .from("profiles")
           .upsert({
             id: authData.user.id,
+            email,
             full_name,
             role,
             project_id: project_id || null,
             updated_at: new Date().toISOString()
           })
           .select()
-          .single();
+          .maybeSingle();
 
         if (retryError) {
-          throw retryError;
+          console.warn("Fallback with email failed, attempting final fallback without email or server_stats_access:", retryError.message);
+          
+          const { data: finalData, error: finalError } = await supabase!
+            .from("profiles")
+            .upsert({
+              id: authData.user.id,
+              full_name,
+              role,
+              project_id: project_id || null,
+              updated_at: new Date().toISOString()
+            })
+            .select()
+            .single();
+
+          if (finalError) throw finalError;
+          profileData = finalData;
+        } else {
+          profileData = retryData;
         }
-        profileData = retryData;
       } else {
         profileData = upsertData;
       }

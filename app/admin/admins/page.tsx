@@ -49,7 +49,7 @@ export default function AdminAccountsPage() {
 
   const fetchAdmins = async () => {
     try {
-      const res = await fetch("/api/admin/admins");
+      const res = await fetch("/api/admin/admins", { cache: "no-store" });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to load admin list");
       setAdmins(data);
